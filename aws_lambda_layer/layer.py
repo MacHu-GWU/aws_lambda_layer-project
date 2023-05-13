@@ -11,12 +11,11 @@ It stores the layer artifacts in an S3 bucket with the following structure::
     s3://bucket/${s3dir_lambda}/layer/000003/layer.zip
     s3://bucket/${s3dir_lambda}/layer/000003/requirements.txt
 """
-import os
+
 import typing as T
 import glob
 import shutil
 import subprocess
-import dataclasses
 from pathlib import Path
 from urllib.parse import urlencode
 

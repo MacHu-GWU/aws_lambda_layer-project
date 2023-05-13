@@ -11,7 +11,7 @@ It stores the layer artifacts in an S3 bucket with the following structure::
     s3://bucket/${s3dir_lambda}/layer/000003/layer.zip
     s3://bucket/${s3dir_lambda}/layer/000003/requirements.txt
 """
-
+import os
 import typing as T
 import glob
 import shutil
@@ -79,6 +79,9 @@ def is_current_layer_the_same_as_latest_one(
     s3path_layer_requirements_txt = build_context.get_s3path_layer_requirements_txt(
         version=latest_layer_version,
     )
+    # this file may not exist
+    if s3path_layer_requirements_txt.exists(bsm=bsm) is False:
+        return False
 
     # compare
     local_deps = path_requirements.read_text()
@@ -154,11 +157,13 @@ def build_layer_artifacts(
     ]
     if quite:
         args.append("-q")
-    args.extend(glob.glob("*"))
+    # the glob command depends on the current working directory
+    with utils.temp_cwd(build_context.dir_build):
+        args.extend(glob.glob("*"))
     args.append("-x")
     for package in ignore_package_list:
         args.append(f"python/{package}*")
-
+    # the zip command depends on the current working directory
     with utils.temp_cwd(build_context.dir_build):
         subprocess.run(args, check=True)
 
@@ -183,23 +188,26 @@ def upload_layer_artifacts(
     """
     build_context = BuildContext.new(dir_build=dir_build, s3dir_lambda=s3dir_lambda)
     path_requirements = Path(path_requirements).absolute()
-    if tags is not NOTHING:
-        extra_kwargs = {"Tagging": urlencode(tags)}
-    else:
-        extra_kwargs = {}
+
     # upload layer.zip
+    extra_args = {"ContentType": "application/zip"}
+    if tags is not NOTHING:
+        extra_args["Tagging"] = urlencode(tags)
     build_context.s3path_tmp_layer_zip.upload_file(
         build_context.path_layer_zip,
         overwrite=True,
         bsm=bsm,
-        **extra_kwargs,
+        extra_args=extra_args,
     )
     # upload requirements.txt
+    extra_args = {"ContentType": "text/plain"}
+    if tags is not NOTHING:
+        extra_args["Tagging"] = urlencode(tags)
     build_context.s3path_tmp_layer_requirements_txt.upload_file(
         path_requirements,
         overwrite=True,
         bsm=bsm,
-        **extra_kwargs,
+        extra_args=extra_args,
     )
 
 
@@ -300,20 +308,20 @@ def deploy_layer(
         path_requirements=path_requirements,
         s3dir_lambda=s3dir_lambda,
     ):
-        build_layer_artifacts(
-            path_requirements=path_requirements,
-            dir_build=dir_build,
-            bin_pip=bin_pip,
-            quite=quite,
-        )
-    else:
         return None
 
+    build_layer_artifacts(
+        path_requirements=path_requirements,
+        dir_build=dir_build,
+        bin_pip=bin_pip,
+        quite=quite,
+    )
     upload_layer_artifacts(
         bsm=bsm,
         path_requirements=path_requirements,
         dir_build=dir_build,
         s3dir_lambda=s3dir_lambda,
+        tags=tags,
     )
     return publish_layer(
         bsm=bsm,

@@ -1,0 +1,2 @@
+boto_session_manager
+s3pathlib>=2.0.1

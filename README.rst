@@ -1,12 +1,12 @@
 
-.. image:: https://readthedocs.org/projects/aws_lambda_layer/badge/?version=latest
+.. .. image:: https://readthedocs.org/projects/aws_lambda_layer/badge/?version=latest
     :target: https://aws_lambda_layer.readthedocs.io/index.html
     :alt: Documentation Status
 
-.. image:: https://github.com/MacHu-GWU/aws_lambda_layer-project/workflows/CI/badge.svg
+.. .. image:: https://github.com/MacHu-GWU/aws_lambda_layer-project/workflows/CI/badge.svg
     :target: https://github.com/MacHu-GWU/aws_lambda_layer-project/actions?query=workflow:CI
 
-.. image:: https://codecov.io/gh/MacHu-GWU/aws_lambda_layer-project/branch/main/graph/badge.svg
+.. .. image:: https://codecov.io/gh/MacHu-GWU/aws_lambda_layer-project/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/MacHu-GWU/aws_lambda_layer-project
 
 .. image:: https://img.shields.io/pypi/v/aws_lambda_layer.svg
@@ -23,17 +23,16 @@
 
 ------
 
-
-.. image:: https://img.shields.io/badge/Link-Document-blue.svg
+.. .. image:: https://img.shields.io/badge/Link-Document-blue.svg
     :target: https://aws_lambda_layer.readthedocs.io/index.html
 
-.. image:: https://img.shields.io/badge/Link-API-blue.svg
+.. .. image:: https://img.shields.io/badge/Link-API-blue.svg
     :target: https://aws_lambda_layer.readthedocs.io/py-modindex.html
 
-.. image:: https://img.shields.io/badge/Link-Source_Code-blue.svg
+.. .. image:: https://img.shields.io/badge/Link-Source_Code-blue.svg
     :target: https://aws_lambda_layer.readthedocs.io/py-modindex.html
 
-.. image:: https://img.shields.io/badge/Link-Install-blue.svg
+.. .. image:: https://img.shields.io/badge/Link-Install-blue.svg
     :target: `install`_
 
 .. image:: https://img.shields.io/badge/Link-GitHub-blue.svg
@@ -51,8 +50,12 @@
 
 Welcome to ``aws_lambda_layer`` Documentation
 ==============================================================================
+A simple tool that automates the process of building and deploying AWS Lambda layers and source artifacts. It utilizes a purposefully designed S3 folder structure to store all historical versions of artifacts.
 
-Documentation for ``aws_lambda_layer``.
+Examples:
+
+- `build_layer.py <./example/build_layer.py>`_
+- `build_source.py <./example/build_source.py>`_
 
 
 .. _install:

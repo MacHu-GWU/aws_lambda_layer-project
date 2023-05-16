@@ -92,7 +92,7 @@ def build_layer_artifacts(
     path_requirements: T.Union[str, Path],
     dir_build: T.Union[str, Path],
     bin_pip: T.Union[str, Path],
-    quite: bool = False,
+    quiet: bool = False,
 ):
     """
     This function builds the AWS Lambda layer artifacts based on the dependencies
@@ -105,10 +105,10 @@ def build_layer_artifacts(
     also uses Amazon Linux. Building the layer on Windows or Mac may result in
     compatibility issues with certain C libraries.
 
-    :param path_requirements: example: /path/to/requirements.txt
-    :param dir_build: example: /path/to/build/lambda
-    :param bin_pip: example: /path/to/.venv/bin/pip
-    :param quite: whether you want to suppress the output of cli commands
+    :param path_requirements: example: ``/path/to/requirements.txt``
+    :param dir_build: example: ``/path/to/build/lambda``
+    :param bin_pip: example: ``/path/to/.venv/bin/pip``
+    :param quiet: whether you want to suppress the output of cli commands
     """
     build_context = BuildContext.new(dir_build=dir_build)
     path_requirements = Path(path_requirements).absolute()
@@ -123,14 +123,14 @@ def build_layer_artifacts(
 
     # do "pip install -r requirements.txt -t ./build/lambda/python"
     args = [
-        bin_pip,
+        f"{bin_pip}",
         "install",
         "-r",
         f"{path_requirements}",
         "-t",
         f"{build_context.dir_python}",
     ]
-    if quite:
+    if quiet:
         args.append("--quiet")
     subprocess.run(args, check=True)
 
@@ -154,16 +154,14 @@ def build_layer_artifacts(
         "-r",
         "-9",
     ]
-    if quite:
+    if quiet:
         args.append("-q")
-    # the glob command depends on the current working directory
+    # the glob command and zip command depends on the current working directory
     with utils.temp_cwd(build_context.dir_build):
         args.extend(glob.glob("*"))
-    args.append("-x")
-    for package in ignore_package_list:
-        args.append(f"python/{package}*")
-    # the zip command depends on the current working directory
-    with utils.temp_cwd(build_context.dir_build):
+        args.append("-x")
+        for package in ignore_package_list:
+            args.append(f"python/{package}*")
         subprocess.run(args, check=True)
 
 
@@ -180,9 +178,9 @@ def upload_layer_artifacts(
     is successful, copy it to the final location for the layer artifacts.
 
     :param bsm: boto session manager object
-    :param path_requirements: example: /path/to/requirements.txt
-    :param dir_build: example: /path/to/build/lambda
-    :param s3dir_lambda: example: s3://bucket/path/to/lambda/
+    :param path_requirements: example: ``/path/to/requirements.txt``
+    :param dir_build: example: ``/path/to/build/lambda``
+    :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
     :param tags: S3 object tags
     """
     build_context = BuildContext.new(dir_build=dir_build, s3dir_lambda=s3dir_lambda)
@@ -223,9 +221,9 @@ def publish_layer(
 
     :param bsm: boto session manager object
     :param layer_name: the lambda layer name
-    :param python_version: example: ["python3.8",]
-    :param dir_build: example: /path/to/build/lambda
-    :param s3dir_lambda: example: s3://bucket/path/to/lambda/
+    :param python_version: example: ``["python3.8",]``
+    :param dir_build: example: ``/path/to/build/lambda``
+    :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
     :param tags: S3 object tags
 
     :return: The published lambda layer version ARN
@@ -274,7 +272,7 @@ def deploy_layer(
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
     bin_pip: T.Union[str, Path],
-    quite: bool = False,
+    quiet: bool = False,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
 ) -> T.Optional[str]:
     """
@@ -289,12 +287,12 @@ def deploy_layer(
 
     :param bsm: boto session manager object
     :param layer_name: the lambda layer name
-    :param python_version: example: ["python3.8",]
-    :param path_requirements: example: /path/to/requirements.txt
-    :param dir_build: example: /path/to/build/lambda
-    :param s3dir_lambda: example: s3://bucket/path/to/lambda/
-    :param bin_pip: example: /path/to/.venv/bin/pip
-    :param quite: whether you want to suppress the output of cli commands
+    :param python_version: example: ``["python3.8",]``
+    :param path_requirements: example: ``/path/to/requirements.txt``
+    :param dir_build: example: ``/path/to/build/lambda``
+    :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
+    :param bin_pip: example: ``/path/to/.venv/bin/pip``
+    :param quiet: whether you want to suppress the output of cli commands
     :param tags: S3 object tags
 
     :return: The published lambda layer version ARN. If returns None,
@@ -313,7 +311,7 @@ def deploy_layer(
         path_requirements=path_requirements,
         dir_build=dir_build,
         bin_pip=bin_pip,
-        quite=quite,
+        quiet=quiet,
     )
     upload_layer_artifacts(
         bsm=bsm,

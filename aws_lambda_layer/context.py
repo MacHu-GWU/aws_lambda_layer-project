@@ -35,6 +35,11 @@ class BuildContext:
         return self.dir_build.joinpath("python")
 
     @property
+    def dir_deploy(self) -> Path:
+        return self.dir_build.joinpath("deploy")
+
+
+    @property
     def path_source_zip(self) -> Path:
         """
         This file will be the Lambda source code zip file.

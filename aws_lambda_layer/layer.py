@@ -299,6 +299,7 @@ def deploy_layer(
         then no deployment happened.
     """
     latest_layer_version = get_latest_layer_version(bsm=bsm, layer_name=layer_name)
+
     if is_current_layer_the_same_as_latest_one(
         bsm=bsm,
         latest_layer_version=latest_layer_version,
@@ -313,6 +314,7 @@ def deploy_layer(
         bin_pip=bin_pip,
         quiet=quiet,
     )
+
     upload_layer_artifacts(
         bsm=bsm,
         path_requirements=path_requirements,
@@ -320,6 +322,7 @@ def deploy_layer(
         s3dir_lambda=s3dir_lambda,
         tags=tags,
     )
+
     return publish_layer(
         bsm=bsm,
         layer_name=layer_name,

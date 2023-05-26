@@ -222,6 +222,7 @@ def upload_source_artifacts(
     version: str,
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
+    metadata: T.Optional[T.Dict[str, str]] = NOTHING,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
 ) -> S3Path:
     """
@@ -241,6 +242,8 @@ def upload_source_artifacts(
     s3path_source_zip = s3dir_source.joinpath("source.zip")
     # upload source.zip
     extra_args = {"ContentType": "application/zip"}
+    if metadata is not NOTHING:
+        extra_args["Metadata"] = metadata
     if tags is not NOTHING:
         extra_args["Tagging"] = urlencode(tags)
     s3path_source_zip.upload_file(
@@ -262,6 +265,7 @@ def publish_source_artifacts(
     s3dir_lambda: T.Union[str, S3Path],
     path_bin_python: T.Optional[T.Union[str, Path]] = None,
     path_bin_poetry: T.Optional[T.Union[str, Path]] = None,
+    metadata: T.Optional[T.Dict[str, str]] = NOTHING,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
     use_pip: bool = False,
     use_build: bool = False,
@@ -309,5 +313,6 @@ def publish_source_artifacts(
         version=version,
         dir_build=dir_build,
         s3dir_lambda=s3dir_lambda,
+        metadata=metadata,
         tags=tags,
     )

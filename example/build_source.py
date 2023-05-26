@@ -20,6 +20,7 @@ s3dir_lambda = S3Path(
 path_bin_python = Path(sys.executable)
 path_bin_poetry = "poetry"
 verbose = True
+metadata = {"project": package_name}
 tags = {"project": package_name}
 
 s3path_source_zip = publish_source_artifacts(
@@ -32,6 +33,7 @@ s3path_source_zip = publish_source_artifacts(
     s3dir_lambda=s3dir_lambda,
     # path_bin_python=path_bin_python,
     # path_bin_poetry=path_bin_poetry,
+    metadata=metadata,
     tags=tags,
     # use_pip=True,
     # use_build=True,

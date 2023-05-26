@@ -42,7 +42,7 @@ if api.is_current_layer_the_same_as_latest_one(
     exit(0)
 
 print("build layer artifacts ...")
-api.build_layer_artifacts(
+layer_sha256 = api.build_layer_artifacts(
     path_requirements=path_requirements,
     dir_build=dir_build,
     bin_pip=bin_pip,
@@ -53,6 +53,7 @@ print("upload layer artifacts ...")
 api.upload_layer_artifacts(
     bsm=bsm,
     path_requirements=path_requirements,
+    layer_sha256=layer_sha256,
     dir_build=dir_build,
     s3dir_lambda=s3dir_lambda,
     metadata=metadata,

@@ -274,7 +274,14 @@ def publish_source_artifacts(
     verbose: bool = True,
 ) -> S3Path:
     """
-    Build and then upload the source artifacts to S3.
+    Assemble the following functions together to build and then upload the
+    source artifacts to S3.
+
+    - :func:`build_source_artifacts`
+    - :func:`upload_source_artifacts`
+
+    This function has four options to build the source artifacts. If you are
+    lazy, I recommend ``use_pathlib=True``.
 
     :param bsm: boto session manager object
     :param path_setup_py_or_pyproject_toml: example: ``/path/to/setup.py`` or

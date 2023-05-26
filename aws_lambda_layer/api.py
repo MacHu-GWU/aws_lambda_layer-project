@@ -14,3 +14,4 @@ from .source import (
     upload_source_artifacts,
     publish_source_artifacts,
 )
+from .utils import sha256_of_paths

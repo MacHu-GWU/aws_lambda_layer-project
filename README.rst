@@ -57,6 +57,11 @@ Examples:
 - `build_layer.py <./example/build_layer.py>`_
 - `build_source.py <./example/build_source.py>`_
 
+You may need additional tools to build your source artifacts:
+
+- do ``pip install build`` to use ``python -m build``
+- do ``pip install poetry`` to use ``poetry build``
+
 
 .. _install:
 

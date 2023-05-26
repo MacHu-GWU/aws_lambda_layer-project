@@ -286,6 +286,11 @@ def deploy_layer(
     - :func:`upload_layer_artifacts`
     - :func:`publish_layer`
 
+    This function uses requirements.txt file to determine the dependencies.
+    If you use poetry, pdm, pipenv or any other dependency management tool,
+    you should export your dependencies to requirements.txt file first.
+    I recommend poetry because the layer is supposed to be deterministic.
+
     :param bsm: boto session manager object
     :param layer_name: the lambda layer name
     :param python_version: example: ``["python3.8",]``

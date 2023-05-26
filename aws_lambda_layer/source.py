@@ -22,49 +22,177 @@ from boto_session_manager import BotoSesManager
 
 from . import utils
 from .context import BuildContext
+from .build_dist import (
+    build_dist_with_python,
+    build_dist_with_python_build,
+    build_dist_with_poetry_build,
+)
+
+
+def _build_source_from_tar_gz(
+    package_name: str,
+    dir_dist: Path,
+    dir_tmp: Path,
+    dir_deploy: Path,
+):
+    # validate arguments
+    if dir_dist.is_dir() is False:
+        raise ValueError(f"dir_dist {dir_dist} is not a directory")
+    if dir_tmp.is_dir() is False:
+        raise ValueError(f"dir_tmp {dir_tmp} is not a directory")
+    if dir_deploy.is_dir() is False:
+        raise ValueError(f"dir_deploy {dir_deploy} is not a directory")
+
+    # locate the ${dir_dist}/${package_name}-${version}.tar.gz file
+    path_tar: T.Optional[Path] = None
+    for p in dir_dist.iterdir():
+        if p.name.endswith(".tar.gz"):
+            path_tar = p
+    if path_tar is None:
+        raise FileNotFoundError
+
+    # extract the tar.gz file to ${dir_tmp}/${package_name}
+    extracted_folder_name = path_tar.name.replace(".tar.gz", "")
+    dir_extracted_folder = dir_tmp / extracted_folder_name
+    shutil.rmtree(dir_extracted_folder, ignore_errors=True)
+    dir_tmp.mkdir(parents=True, exist_ok=True)
+    args = [
+        "tar",
+        "-xzf",
+        f"{path_tar}",
+        "-C",
+        f"{dir_tmp}",
+    ]
+    subprocess.run(args, check=True)
+    # move the source code
+    # from ${dir_tmp}/${extracted_folder_name}/${package_name}
+    # to ${dir_deploy}/${package_name}
+    before_dir = dir_extracted_folder / package_name
+    after_dir = dir_deploy / package_name
+    dir_deploy.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(after_dir, ignore_errors=True)
+    shutil.move(f"{before_dir}", f"{after_dir}")
 
 
 def build_source_artifacts(
     path_setup_py_or_pyproject_toml: T.Union[str, Path],
+    package_name: str,
     path_lambda_function: T.Union[str, Path],
-    bin_pip: T.Union[str, Path],
     dir_build: T.Union[str, Path],
-    quiet: bool = False,
+    path_bin_python: T.Optional[T.Union[str, Path]] = None,
+    path_bin_poetry: T.Optional[T.Union[str, Path]] = None,
+    use_pip: bool = False,
+    use_build: bool = False,
+    use_poetry: bool = False,
+    use_pathlib: bool = False,
+    verbose: bool = True,
 ) -> Path:
     """
     This function builds the source artifacts for the AWS Lambda deployment package.
 
+    Given the ``path_setup_py_or_pyproject_toml`` path, this function will
+    locate the directory where the ``python -m build``, ``pip install`` or ``poetry build``
+    command should run, build the distribution package, and then copy the
+    ``path_lambda_function`` to the deploy folder in the ``dir_build`` directory,
+    and create the ``source.zip`` file.
+
     :param path_setup_py_or_pyproject_toml: example: ``/path/to/setup.py`` or
         ``/path/to/pyproject.toml``
+    :param package_name: example: ``aws_lambda_layer``
     :param path_lambda_function: example: ``/path/to/lambda_function.py``
     :param dir_build: example: ``/path/to/build/lambda``
-    :param bin_pip: example: ``/path/to/.venv/bin/pip``
-    :param quiet: whether you want to suppress the output of cli commands
+    :param path_bin_python: example ``/path/to/.venv/bin/python``
+    :param path_bin_poetry: example ``/path/to/.venv/bin/poetry`` or the global ``poetry``
+    :param use_pip: do you want to use pip to build your source?
+    :param use_build: do you want to use python-build to build your source?
+    :param use_poetry: do you want to use python-poetry to build your source?
+    :param use_pathlib: do you want to use pathlib to build your source?
+    :param verbose: whether you want to suppress the output of cli commands
 
     :return: the ``/path/to/build/lambda/source.zip`` file
     """
+    # validate arguments
+    utils.ensure_exact_one_true(
+        [
+            use_pip,
+            use_build,
+            use_poetry,
+            use_pathlib,
+        ]
+    )
+
     # resolve arguments
     path_setup_py_or_pyproject_toml = Path(path_setup_py_or_pyproject_toml).absolute()
     path_lambda_function = Path(path_lambda_function).absolute()
-    bin_pip = Path(bin_pip).absolute()
+    if path_bin_python is not None:
+        path_bin_python = Path(path_bin_python).absolute()
     build_context = BuildContext.new(dir_build=dir_build)
     dir_project_root = path_setup_py_or_pyproject_toml.parent
+    dir_dist = dir_project_root.joinpath("dist")
+    dir_python_lib = dir_project_root.joinpath(package_name)
 
-    # clean up existing files
-    shutil.rmtree(build_context.dir_deploy, ignore_errors=True)
+    # clean up existing files in build folder
+    shutil.rmtree(build_context.dir_build, ignore_errors=True)
+    build_context.dir_deploy.mkdir(parents=True, exist_ok=True)
 
     # install python library
-    with utils.temp_cwd(dir_project_root):
-        args = [
-            f"{bin_pip}",
-            "install",
-            f"{dir_project_root}",
-            "--no-dependencies",
-            f"--target={build_context.dir_deploy}",
-        ]
-        if quiet:
-            args.append("--quiet")
-        subprocess.run(args, check=True)
+    if use_pip:
+        with utils.temp_cwd(dir_project_root):
+            args = [
+                f"{path_bin_python}",
+                "-m",
+                "pip",
+                "install",
+                f"{dir_project_root}",
+                "--no-dependencies",
+                f"--target={build_context.dir_deploy}",
+            ]
+            if verbose is False:
+                args.append("--disable-pip-version-check")
+                args.append("--quiet")
+            subprocess.run(args, check=True)
+    # ref: https://pypa-build.readthedocs.io/en/latest/
+    elif use_build:
+        build_dist_with_python_build(
+            dir_project_root=dir_project_root,
+            path_bin_python=path_bin_python,
+            verbose=verbose,
+        )
+        _build_source_from_tar_gz(
+            package_name=package_name,
+            dir_dist=dir_dist,
+            dir_tmp=build_context.dir_build,
+            dir_deploy=build_context.dir_deploy,
+        )
+    # ref: https://python-poetry.org/docs/cli/#build
+    elif use_poetry:
+        build_dist_with_poetry_build(
+            dir_project_root=dir_project_root,
+            path_bin_poetry=path_bin_poetry,
+            verbose=verbose,
+        )
+        _build_source_from_tar_gz(
+            package_name=package_name,
+            dir_dist=dir_dist,
+            dir_tmp=build_context.dir_build,
+            dir_deploy=build_context.dir_deploy,
+        )
+    elif use_pathlib:
+        for path in dir_python_lib.glob("**/*"):
+            relpath = path.relative_to(dir_python_lib)
+            if "__pycache__" not in str(relpath):
+                if path.is_file():
+                    path_new = build_context.dir_deploy.joinpath(
+                        package_name, path.relative_to(dir_python_lib)
+                    )
+                    try:
+                        path_new.write_bytes(path.read_bytes())
+                    except FileNotFoundError:
+                        path_new.parent.mkdir(parents=True, exist_ok=True)
+                        path_new.write_bytes(path.read_bytes())
+                else:
+                    pass
+
     # copy lambda function entry point script
     shutil.copy(
         path_lambda_function,
@@ -78,12 +206,14 @@ def build_source_artifacts(
         "-r",
         "-9",
     ]
-    if quiet:
+    if verbose is False:
         args.append("-q")
-    # the glob command depends on the current working directory
+
+    # has to cd to the deploy dir to run the glob command
     with utils.temp_cwd(build_context.dir_deploy):
         args.extend(glob.glob("*"))
         subprocess.run(args, check=True)
+
     return build_context.path_source_zip
 
 
@@ -125,13 +255,19 @@ def upload_source_artifacts(
 def publish_source_artifacts(
     bsm: "BotoSesManager",
     path_setup_py_or_pyproject_toml: T.Union[str, Path],
+    package_name: str,
     path_lambda_function: T.Union[str, Path],
     version: str,
-    bin_pip: T.Union[str, Path],
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
-    quiet: bool = False,
+    path_bin_python: T.Optional[T.Union[str, Path]] = None,
+    path_bin_poetry: T.Optional[T.Union[str, Path]] = None,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
+    use_pip: bool = False,
+    use_build: bool = False,
+    use_poetry: bool = False,
+    use_pathlib: bool = False,
+    verbose: bool = True,
 ) -> S3Path:
     """
     Build and then upload the source artifacts to S3.
@@ -139,22 +275,34 @@ def publish_source_artifacts(
     :param bsm: boto session manager object
     :param path_setup_py_or_pyproject_toml: example: ``/path/to/setup.py`` or
         ``/path/to/pyproject.toml``
+    :param package_name: example: ``aws_lambda_layer``
     :param path_lambda_function: example: ``/path/to/lambda_function.py``
     :param version: example: ``"0.1.1"``
-    :param bin_pip: example: ``/path/to/.venv/bin/pip``
     :param dir_build: example: ``/path/to/build/lambda``
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
-    :param quiet: whether you want to suppress the output of cli commands
+    :param path_bin_python: example ``/path/to/.venv/bin/python``
+    :param path_bin_poetry: example ``/path/to/.venv/bin/poetry`` or the global ``poetry``
     :param tags: S3 object tags
+    :param use_pip: do you want to use pip to build your source?
+    :param use_build: do you want to use python-build to build your source?
+    :param use_poetry: do you want to use python-poetry to build your source?
+    :param use_pathlib: do you want to use pathlib to build your source?
+    :param verbose: whether you want to suppress the output of cli commands
 
     :return: the S3 path of the uploaded ``source.zip`` file
     """
     build_source_artifacts(
         path_setup_py_or_pyproject_toml=path_setup_py_or_pyproject_toml,
+        package_name=package_name,
         path_lambda_function=path_lambda_function,
         dir_build=dir_build,
-        bin_pip=bin_pip,
-        quiet=quiet,
+        path_bin_python=path_bin_python,
+        path_bin_poetry=path_bin_poetry,
+        use_pip=use_pip,
+        use_build=use_build,
+        use_poetry=use_poetry,
+        use_pathlib=use_pathlib,
+        verbose=verbose,
     )
     return upload_source_artifacts(
         bsm=bsm,

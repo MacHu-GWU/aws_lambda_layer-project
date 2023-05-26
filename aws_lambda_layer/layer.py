@@ -131,6 +131,7 @@ def build_layer_artifacts(
         f"{build_context.dir_python}",
     ]
     if quiet:
+        args.append("--disable-pip-version-check")
         args.append("--quiet")
     subprocess.run(args, check=True)
 

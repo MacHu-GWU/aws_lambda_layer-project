@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+This module defines the Lambda artifacts build context.
+"""
+
 import typing as T
 import dataclasses
 from pathlib import Path
@@ -10,6 +14,14 @@ ZFILL = 6
 
 @dataclasses.dataclass
 class BuildContext:
+    """
+    This object defines where the lambda artifacts should locate at on local
+    laptop and on S3 bucket.
+
+    :param dir_build: the root directory of the build folder on local
+    :param s3dir_lambda: the root directory of the lambda artifacts on S3
+    """
+
     dir_build: T.Optional[Path] = dataclasses.field(default=None)
     s3dir_lambda: T.Optional[S3Path] = dataclasses.field(default=None)
 
@@ -37,7 +49,6 @@ class BuildContext:
     @property
     def dir_deploy(self) -> Path:
         return self.dir_build.joinpath("deploy")
-
 
     @property
     def path_source_zip(self) -> Path:

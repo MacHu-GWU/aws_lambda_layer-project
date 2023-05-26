@@ -23,7 +23,7 @@ verbose = True
 metadata = {"project": package_name}
 tags = {"project": package_name}
 
-s3path_source_zip = publish_source_artifacts(
+source_sha256, path_source_zip, s3path_source_zip = publish_source_artifacts(
     bsm=bsm,
     path_setup_py_or_pyproject_toml=path_setup_py_or_pyproject_toml,
     package_name=package_name,

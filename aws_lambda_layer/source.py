@@ -86,7 +86,7 @@ def build_source_artifacts(
     use_poetry: bool = False,
     use_pathlib: bool = False,
     verbose: bool = True,
-) -> Path:
+) -> T.Tuple[str, Path]:
     """
     This function builds the source artifacts for the AWS Lambda deployment package.
 
@@ -109,7 +109,8 @@ def build_source_artifacts(
     :param use_pathlib: do you want to use pathlib to build your source?
     :param verbose: whether you want to suppress the output of cli commands
 
-    :return: the ``/path/to/build/lambda/source.zip`` file
+    :return: tuple of two item, first one is the code sha256 hash of the source artifacts,
+        second one is the path to the source.zip file
     """
     # validate arguments
     utils.ensure_exact_one_true(
@@ -214,12 +215,15 @@ def build_source_artifacts(
         args.extend(glob.glob("*"))
         subprocess.run(args, check=True)
 
-    return build_context.path_source_zip
+    source_sha256 = utils.sha256_of_paths([build_context.dir_deploy])
+    path_source_zip = build_context.path_source_zip
+    return source_sha256, path_source_zip
 
 
 def upload_source_artifacts(
     bsm: "BotoSesManager",
     version: str,
+    source_sha256: str,
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
     metadata: T.Optional[T.Dict[str, str]] = NOTHING,
@@ -230,9 +234,11 @@ def upload_source_artifacts(
     to S3 folder.
 
     :param bsm: boto session manager object
-    :param version: example: ``"0.1.1"``
+    :param version: lambda source code version, example: ``"0.1.1"``
+    :param source_sha256: sha256 hash of the source artifacts
     :param dir_build: example: ``/path/to/build/lambda``
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
+    :param metadata: S3 object metadata
     :param tags: S3 object tags
 
     :return: the S3 path of the uploaded ``source.zip`` file
@@ -242,8 +248,10 @@ def upload_source_artifacts(
     s3path_source_zip = s3dir_source.joinpath("source.zip")
     # upload source.zip
     extra_args = {"ContentType": "application/zip"}
-    if metadata is not NOTHING:
-        extra_args["Metadata"] = metadata
+    if metadata is NOTHING:
+        metadata = {}
+    metadata["source_sha256"] = source_sha256
+    extra_args["Metadata"] = metadata
     if tags is not NOTHING:
         extra_args["Tagging"] = urlencode(tags)
     s3path_source_zip.upload_file(
@@ -272,7 +280,7 @@ def publish_source_artifacts(
     use_poetry: bool = False,
     use_pathlib: bool = False,
     verbose: bool = True,
-) -> S3Path:
+) -> T.Tuple[str, Path, S3Path]:
     """
     Assemble the following functions together to build and then upload the
     source artifacts to S3.
@@ -288,11 +296,12 @@ def publish_source_artifacts(
         ``/path/to/pyproject.toml``
     :param package_name: example: ``aws_lambda_layer``
     :param path_lambda_function: example: ``/path/to/lambda_function.py``
-    :param version: example: ``"0.1.1"``
+    :param version: lambda source code version, example: ``"0.1.1"``
     :param dir_build: example: ``/path/to/build/lambda``
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
     :param path_bin_python: example ``/path/to/.venv/bin/python``
     :param path_bin_poetry: example ``/path/to/.venv/bin/poetry`` or the global ``poetry``
+    :param metadata: S3 object metadata
     :param tags: S3 object tags
     :param use_pip: do you want to use pip to build your source?
     :param use_build: do you want to use python-build to build your source?
@@ -300,9 +309,11 @@ def publish_source_artifacts(
     :param use_pathlib: do you want to use pathlib to build your source?
     :param verbose: whether you want to suppress the output of cli commands
 
-    :return: the S3 path of the uploaded ``source.zip`` file
+    :return: tuple of three item, first one is the code sha256 hash of the source artifacts,
+        second one is the path to the source.zip file, the third one is the S3 path
+        of the uploaded ``source.zip`` file.
     """
-    build_source_artifacts(
+    source_sha256, path_source_zip = build_source_artifacts(
         path_setup_py_or_pyproject_toml=path_setup_py_or_pyproject_toml,
         package_name=package_name,
         path_lambda_function=path_lambda_function,
@@ -315,11 +326,13 @@ def publish_source_artifacts(
         use_pathlib=use_pathlib,
         verbose=verbose,
     )
-    return upload_source_artifacts(
+    s3path_source_zip = upload_source_artifacts(
         bsm=bsm,
         version=version,
+        source_sha256=source_sha256,
         dir_build=dir_build,
         s3dir_lambda=s3dir_lambda,
         metadata=metadata,
         tags=tags,
     )
+    return source_sha256, path_source_zip, s3path_source_zip

@@ -15,6 +15,7 @@ s3dir_lambda = S3Path(
     f"s3://{bsm.aws_account_id}-{bsm.aws_region}-artifacts/projects/aws_lambda_layer/lambda/"
 ).to_dir()
 quiet = True
+metadata = {"project": "aws_lambda_layer_test"}
 tags = {"project": "aws_lambda_layer_test"}
 #
 # ------------------------------------------------------------------------------
@@ -54,6 +55,7 @@ api.upload_layer_artifacts(
     path_requirements=path_requirements,
     dir_build=dir_build,
     s3dir_lambda=s3dir_lambda,
+    metadata=metadata,
     tags=tags,
 )
 
@@ -64,7 +66,6 @@ layer_version_arn = api.publish_layer(
     python_versions=python_versions,
     dir_build=dir_build,
     s3dir_lambda=s3dir_lambda,
-    tags=tags,
 )
 lambda_layer_console_url = f"https://{bsm.aws_region}.console.aws.amazon.com/lambda/home?region={bsm.aws_region}#/layers/{layer_name}?tab=versions"
 print(f"Done! Published: {layer_version_arn}")

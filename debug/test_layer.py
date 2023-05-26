@@ -18,6 +18,7 @@ s3dir_lambda = S3Path(
 path_requirements = _dir_here.joinpath("requirements.txt")
 bin_pip = Path(sys.executable).parent.joinpath("pip")
 quiet = True
+metadata = {"project": "aws_lambda_layer_test"}
 tags = {"project": "aws_lambda_layer_test"}
 
 flag = deploy_layer(
@@ -29,6 +30,7 @@ flag = deploy_layer(
     s3dir_lambda=s3dir_lambda,
     bin_pip=bin_pip,
     quiet=quiet,
+    metadata=metadata,
     tags=tags,
 )
 lambda_layer_console_url = f"https://{bsm.aws_region}.console.aws.amazon.com/lambda/home?region={bsm.aws_region}#/layers/{layer_name}?tab=versions"

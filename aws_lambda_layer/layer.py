@@ -93,7 +93,7 @@ def build_layer_artifacts(
     dir_build: T.Union[str, Path],
     bin_pip: T.Union[str, Path],
     quiet: bool = False,
-):
+) -> str:
     """
     This function builds the AWS Lambda layer artifacts based on the dependencies
     specified in the ``path_requirements``. It utilizes ``bin_pip`` to install
@@ -109,6 +109,8 @@ def build_layer_artifacts(
     :param dir_build: example: ``/path/to/build/lambda``
     :param bin_pip: example: ``/path/to/.venv/bin/pip``
     :param quiet: whether you want to suppress the output of cli commands
+
+    :return: the layer content sha256
     """
     build_context = BuildContext.new(dir_build=dir_build)
     path_requirements = Path(path_requirements).absolute()
@@ -164,13 +166,17 @@ def build_layer_artifacts(
         for package in ignore_package_list:
             args.append(f"python/{package}*")
         subprocess.run(args, check=True)
+    layer_sha256 = utils.sha256_of_bytes(path_requirements.read_bytes())
+    return layer_sha256
 
 
 def upload_layer_artifacts(
     bsm: "BotoSesManager",
     path_requirements: T.Union[str, Path],
+    layer_sha256: str,
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
+    metadata: T.Optional[T.Dict[str, str]] = NOTHING,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
 ):
     """
@@ -180,15 +186,22 @@ def upload_layer_artifacts(
 
     :param bsm: boto session manager object
     :param path_requirements: example: ``/path/to/requirements.txt``
+    :param layer_sha256: layer content sha256
     :param dir_build: example: ``/path/to/build/lambda``
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
+    :param metadata: S3 object metadata
     :param tags: S3 object tags
     """
     build_context = BuildContext.new(dir_build=dir_build, s3dir_lambda=s3dir_lambda)
     path_requirements = Path(path_requirements).absolute()
 
+    if metadata is NOTHING:
+        metadata = {}
+    metadata["layer_sha256"] = layer_sha256
+
     # upload layer.zip
     extra_args = {"ContentType": "application/zip"}
+    extra_args["Metadata"] = metadata
     if tags is not NOTHING:
         extra_args["Tagging"] = urlencode(tags)
     build_context.s3path_tmp_layer_zip.upload_file(
@@ -197,8 +210,10 @@ def upload_layer_artifacts(
         bsm=bsm,
         extra_args=extra_args,
     )
+
     # upload requirements.txt
     extra_args = {"ContentType": "text/plain"}
+    extra_args["Metadata"] = metadata
     if tags is not NOTHING:
         extra_args["Tagging"] = urlencode(tags)
     build_context.s3path_tmp_layer_requirements_txt.upload_file(
@@ -215,7 +230,6 @@ def publish_layer(
     python_versions: T.List[str],
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
-    tags: T.Optional[T.Dict[str, str]] = NOTHING,
 ) -> str:
     """
     Publish a new lambda layer version from AWS S3.
@@ -225,7 +239,6 @@ def publish_layer(
     :param python_version: example: ``["python3.8",]``
     :param dir_build: example: ``/path/to/build/lambda``
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
-    :param tags: S3 object tags
 
     :return: The published lambda layer version ARN
     """
@@ -254,12 +267,10 @@ def publish_layer(
     # we don't overwrite existing layer artifacts
     build_context.s3path_tmp_layer_zip.copy_to(
         s3path_layer_zip,
-        tags=tags,
         overwrite=False,
     )
     build_context.s3path_tmp_layer_requirements_txt.copy_to(
         s3path_layer_requirements_txt,
-        tags=tags,
         overwrite=False,
     )
     return layer_version_arn
@@ -274,6 +285,7 @@ def deploy_layer(
     s3dir_lambda: T.Union[str, S3Path],
     bin_pip: T.Union[str, Path],
     quiet: bool = False,
+    metadata: T.Optional[T.Dict[str, str]] = NOTHING,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
 ) -> T.Optional[str]:
     """
@@ -299,6 +311,7 @@ def deploy_layer(
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
     :param bin_pip: example: ``/path/to/.venv/bin/pip``
     :param quiet: whether you want to suppress the output of cli commands
+    :param metadata: S3 object metadata
     :param tags: S3 object tags
 
     :return: The published lambda layer version ARN. If returns None,
@@ -314,7 +327,7 @@ def deploy_layer(
     ):
         return None
 
-    build_layer_artifacts(
+    layer_sha256 = build_layer_artifacts(
         path_requirements=path_requirements,
         dir_build=dir_build,
         bin_pip=bin_pip,
@@ -324,8 +337,10 @@ def deploy_layer(
     upload_layer_artifacts(
         bsm=bsm,
         path_requirements=path_requirements,
+        layer_sha256=layer_sha256,
         dir_build=dir_build,
         s3dir_lambda=s3dir_lambda,
+        metadata=metadata,
         tags=tags,
     )
 
@@ -335,5 +350,4 @@ def deploy_layer(
         python_versions=python_versions,
         dir_build=dir_build,
         s3dir_lambda=s3dir_lambda,
-        tags=tags,
     )

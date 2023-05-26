@@ -28,7 +28,8 @@ def sha256_of_paths(paths: T.List[Path]) -> str:
     for path in paths:
         if path.is_dir():
             for p in sorted(path.glob("**/*"), key=lambda x: str(x)):
-                hashes.append(sha256_of_bytes(p.read_bytes()))
+                if p.is_file():
+                    hashes.append(sha256_of_bytes(p.read_bytes()))
         elif path.is_file():
             hashes.append(sha256_of_bytes(path.read_bytes()))
         else:

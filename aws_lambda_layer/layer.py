@@ -16,6 +16,7 @@ import typing as T
 import glob
 import shutil
 import subprocess
+import dataclasses
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -23,7 +24,8 @@ from s3pathlib import S3Path
 from func_args import NOTHING
 from boto_session_manager import BotoSesManager
 
-from . import utils
+from .vendor.better_pathlib import temp_cwd
+from .vendor.hashes import hashes
 from .context import BuildContext
 
 
@@ -110,7 +112,7 @@ def build_layer_artifacts(
     :param bin_pip: example: ``/path/to/.venv/bin/pip``
     :param quiet: whether you want to suppress the output of cli commands
 
-    :return: the layer content sha256
+    :return: the layer content sha256, it is sha256 of the requirements.txt file
     """
     build_context = BuildContext.new(dir_build=dir_build)
     path_requirements = Path(path_requirements).absolute()
@@ -160,13 +162,13 @@ def build_layer_artifacts(
     if quiet:
         args.append("-q")
     # the glob command and zip command depends on the current working directory
-    with utils.temp_cwd(build_context.dir_build):
+    with temp_cwd(build_context.dir_build):
         args.extend(glob.glob("*"))
         args.append("-x")
         for package in ignore_package_list:
             args.append(f"python/{package}*")
         subprocess.run(args, check=True)
-    layer_sha256 = utils.sha256_of_bytes(path_requirements.read_bytes())
+    layer_sha256 = hashes.of_bytes(path_requirements.read_bytes())
     return layer_sha256
 
 
@@ -178,7 +180,7 @@ def upload_layer_artifacts(
     s3dir_lambda: T.Union[str, S3Path],
     metadata: T.Optional[T.Dict[str, str]] = NOTHING,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
-):
+) -> T.Tuple[S3Path, S3Path]:
     """
     Upload the recently built Lambda layer artifact from ``${dir_build}/layer.zip``
     to a temporary S3 folder. If the creation of a new layer from the temporary location
@@ -191,6 +193,8 @@ def upload_layer_artifacts(
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
     :param metadata: S3 object metadata
     :param tags: S3 object tags
+
+    :return: s3path_tmp_layer_zip and s3path_tmp_layer_requirements_txt
     """
     build_context = BuildContext.new(dir_build=dir_build, s3dir_lambda=s3dir_lambda)
     path_requirements = Path(path_requirements).absolute()
@@ -222,6 +226,12 @@ def upload_layer_artifacts(
         bsm=bsm,
         extra_args=extra_args,
     )
+    s3path_tmp_layer_zip = build_context.s3path_tmp_layer_zip
+    s3path_tmp_layer_requirements_txt = build_context.s3path_tmp_layer_requirements_txt
+    return (
+        s3path_tmp_layer_zip,
+        s3path_tmp_layer_requirements_txt,
+    )
 
 
 def publish_layer(
@@ -230,7 +240,7 @@ def publish_layer(
     python_versions: T.List[str],
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
-) -> str:
+) -> T.Tuple[int, str, S3Path, S3Path,]:
     """
     Publish a new lambda layer version from AWS S3.
 
@@ -273,7 +283,30 @@ def publish_layer(
         s3path_layer_requirements_txt,
         overwrite=False,
     )
-    return layer_version_arn
+    return (
+        layer_version,
+        layer_version_arn,
+        s3path_layer_zip,
+        s3path_layer_requirements_txt,
+    )
+
+
+@dataclasses.dataclass
+class LayerDeployment:
+    """
+    Layer deployment information.
+
+    :param layer_sha256: the layer content sha256, it is sha256 of the requirements.txt file
+    :param layer_version: integer layer version
+    :param layer_version_arn: lambda layer arn
+    :param s3path_layer_zip: the S3Path object of the layer.zip file
+    :param s3path_layer_requirements_txt: the S3Path object of the requirements.txt file
+    """
+    layer_sha256: str = dataclasses.field()
+    layer_version: int = dataclasses.field()
+    layer_version_arn: str = dataclasses.field()
+    s3path_layer_zip: S3Path = dataclasses.field()
+    s3path_layer_requirements_txt: S3Path = dataclasses.field()
 
 
 def deploy_layer(
@@ -287,7 +320,7 @@ def deploy_layer(
     quiet: bool = False,
     metadata: T.Optional[T.Dict[str, str]] = NOTHING,
     tags: T.Optional[T.Dict[str, str]] = NOTHING,
-) -> T.Optional[str]:
+) -> T.Optional[LayerDeployment]:
     """
     Assemble the following functions together to build and deploy a new
     Lambda layer version if necessary.
@@ -314,8 +347,8 @@ def deploy_layer(
     :param metadata: S3 object metadata
     :param tags: S3 object tags
 
-    :return: The published lambda layer version ARN. If returns None,
-        then no deployment happened.
+    :return: The :class:`LayerDeployment` object. If returns None, then no
+        deployment happened.
     """
     latest_layer_version = get_latest_layer_version(bsm=bsm, layer_name=layer_name)
 
@@ -334,7 +367,10 @@ def deploy_layer(
         quiet=quiet,
     )
 
-    upload_layer_artifacts(
+    (
+        s3path_tmp_layer_zip,
+        s3path_tmp_layer_requirements_txt,
+    ) = upload_layer_artifacts(
         bsm=bsm,
         path_requirements=path_requirements,
         layer_sha256=layer_sha256,
@@ -344,10 +380,23 @@ def deploy_layer(
         tags=tags,
     )
 
-    return publish_layer(
+    (
+        layer_version,
+        layer_version_arn,
+        s3path_layer_zip,
+        s3path_layer_requirements_txt,
+    ) = publish_layer(
         bsm=bsm,
         layer_name=layer_name,
         python_versions=python_versions,
         dir_build=dir_build,
         s3dir_lambda=s3dir_lambda,
+    )
+
+    return LayerDeployment(
+        layer_sha256=layer_sha256,
+        layer_version=layer_version,
+        layer_version_arn=layer_version_arn,
+        s3path_layer_zip=s3path_layer_zip,
+        s3path_layer_requirements_txt=s3path_layer_requirements_txt,
     )

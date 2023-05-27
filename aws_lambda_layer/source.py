@@ -13,6 +13,7 @@ import typing as T
 import glob
 import shutil
 import subprocess
+import dataclasses
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -20,13 +21,14 @@ from s3pathlib import S3Path
 from func_args import NOTHING
 from boto_session_manager import BotoSesManager
 
-from . import utils
-from .context import BuildContext
-from .build_dist import (
-    build_dist_with_python,
+from .vendor.better_pathlib import temp_cwd
+from .vendor.hashes import hashes
+from .vendor.build_dist import (
     build_dist_with_python_build,
     build_dist_with_poetry_build,
 )
+from .utils import ensure_exact_one_true
+from .context import BuildContext
 
 
 def _build_source_from_tar_gz(
@@ -113,7 +115,7 @@ def build_source_artifacts(
         second one is the path to the source.zip file
     """
     # validate arguments
-    utils.ensure_exact_one_true(
+    ensure_exact_one_true(
         [
             use_pip,
             use_build,
@@ -138,7 +140,7 @@ def build_source_artifacts(
 
     # install python library
     if use_pip:
-        with utils.temp_cwd(dir_project_root):
+        with temp_cwd(dir_project_root):
             args = [
                 f"{path_bin_python}",
                 "-m",
@@ -211,11 +213,11 @@ def build_source_artifacts(
         args.append("-q")
 
     # has to cd to the deploy dir to run the glob command
-    with utils.temp_cwd(build_context.dir_deploy):
+    with temp_cwd(build_context.dir_deploy):
         args.extend(glob.glob("*"))
         subprocess.run(args, check=True)
 
-    source_sha256 = utils.sha256_of_paths([build_context.dir_deploy])
+    source_sha256 = hashes.of_paths([build_context.dir_deploy])
     path_source_zip = build_context.path_source_zip
     return source_sha256, path_source_zip
 
@@ -263,6 +265,20 @@ def upload_source_artifacts(
     return s3path_source_zip
 
 
+@dataclasses.dataclass
+class SourceArtifactsDeployment:
+    """
+    Source artifacts deployment information.
+
+    :param source_sha256: code sha256 hash of the source artifacts
+    :param path_source_zip: path to the source.zip file on local
+    :param s3path_source_zip: S3Path object of the source.zip file
+    """
+    source_sha256: str = dataclasses.field()
+    path_source_zip: Path = dataclasses.field()
+    s3path_source_zip: S3Path = dataclasses.field()
+
+
 def publish_source_artifacts(
     bsm: "BotoSesManager",
     path_setup_py_or_pyproject_toml: T.Union[str, Path],
@@ -280,7 +296,7 @@ def publish_source_artifacts(
     use_poetry: bool = False,
     use_pathlib: bool = False,
     verbose: bool = True,
-) -> T.Tuple[str, Path, S3Path]:
+) -> SourceArtifactsDeployment:
     """
     Assemble the following functions together to build and then upload the
     source artifacts to S3.
@@ -309,9 +325,7 @@ def publish_source_artifacts(
     :param use_pathlib: do you want to use pathlib to build your source?
     :param verbose: whether you want to suppress the output of cli commands
 
-    :return: tuple of three item, first one is the code sha256 hash of the source artifacts,
-        second one is the path to the source.zip file, the third one is the S3 path
-        of the uploaded ``source.zip`` file.
+    :return: :class:`SourceArtifactsDeployment` object.
     """
     source_sha256, path_source_zip = build_source_artifacts(
         path_setup_py_or_pyproject_toml=path_setup_py_or_pyproject_toml,
@@ -335,4 +349,8 @@ def publish_source_artifacts(
         metadata=metadata,
         tags=tags,
     )
-    return source_sha256, path_source_zip, s3path_source_zip
+    return SourceArtifactsDeployment(
+        source_sha256=source_sha256,
+        path_source_zip=path_source_zip,
+        s3path_source_zip=s3path_source_zip,
+    )

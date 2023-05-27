@@ -8,10 +8,10 @@ from .layer import (
     upload_layer_artifacts,
     publish_layer,
     deploy_layer,
+    LayerDeployment,
 )
 from .source import (
     build_source_artifacts,
     upload_source_artifacts,
     publish_source_artifacts,
 )
-from .utils import sha256_of_paths

@@ -23,7 +23,7 @@ verbose = True
 metadata = {"project": package_name}
 tags = {"project": package_name}
 
-source_sha256, path_source_zip, s3path_source_zip = publish_source_artifacts(
+source_artifacts_deployment = publish_source_artifacts(
     bsm=bsm,
     path_setup_py_or_pyproject_toml=path_setup_py_or_pyproject_toml,
     package_name=package_name,
@@ -41,4 +41,4 @@ source_sha256, path_source_zip, s3path_source_zip = publish_source_artifacts(
     use_pathlib=True,
     verbose=verbose,
 )
-print(f"build and upload source artifacts, preview s3: {s3path_source_zip.console_url}")
+print(f"build and upload source artifacts, preview s3: {source_artifacts_deployment.s3path_source_zip.console_url}")

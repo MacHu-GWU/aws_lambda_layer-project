@@ -21,7 +21,7 @@ quiet = True
 metadata = {"project": "aws_lambda_layer_test"}
 tags = {"project": "aws_lambda_layer_test"}
 
-flag = deploy_layer(
+layer_deployment = deploy_layer(
     bsm=bsm,
     layer_name=layer_name,
     python_versions=python_versions,
@@ -34,8 +34,19 @@ flag = deploy_layer(
     tags=tags,
 )
 lambda_layer_console_url = f"https://{bsm.aws_region}.console.aws.amazon.com/lambda/home?region={bsm.aws_region}#/layers/{layer_name}?tab=versions"
-if flag:
-    print(f"published a new layer version, preview lambda layer: {lambda_layer_console_url}")
+if layer_deployment:
+    print(
+        f"published a new layer version, preview lambda layer: {lambda_layer_console_url}"
+    )
     print(f"preview s3: {s3dir_lambda.console_url}")
+    print(f"layer_sha256: {layer_deployment.layer_sha256}")
+    print(f"layer_version: {layer_deployment.layer_version}")
+    print(f"layer_version_arn: {layer_deployment.layer_version_arn}")
+    print(f"s3path_layer_zip: {layer_deployment.s3path_layer_zip.console_url}")
+    print(
+        f"s3path_layer_requirements_txt: {layer_deployment.s3path_layer_requirements_txt.console_url}"
+    )
 else:
-    print(f"no new layer version published, preview lambda layer: {lambda_layer_console_url}")
+    print(
+        f"no new layer version published, preview lambda layer: {lambda_layer_console_url}"
+    )

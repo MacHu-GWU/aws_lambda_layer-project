@@ -61,7 +61,12 @@ api.upload_layer_artifacts(
 )
 
 print("publish new layer version ...")
-layer_version_arn = api.publish_layer(
+(
+    layer_version,
+    layer_version_arn,
+    s3path_layer_zip,
+    s3path_layer_requirements_txt,
+) = api.publish_layer(
     bsm=bsm,
     layer_name=layer_name,
     python_versions=python_versions,

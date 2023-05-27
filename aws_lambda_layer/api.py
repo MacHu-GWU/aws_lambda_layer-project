@@ -14,4 +14,5 @@ from .source import (
     build_source_artifacts,
     upload_source_artifacts,
     publish_source_artifacts,
+    SourceArtifactsDeployment,
 )

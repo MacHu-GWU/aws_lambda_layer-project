@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from s3pathlib import S3Path
 from boto_session_manager import BotoSesManager
-from aws_lambda_layer.source import publish_source_artifacts
+from aws_lambda_layer.source import build_source_python_lib, publish_source_artifacts
 
 _dir_here = Path(__file__).absolute().parent
 
@@ -22,6 +22,7 @@ path_bin_poetry = "poetry"
 verbose = True
 metadata = {"project": package_name}
 tags = {"project": package_name}
+
 
 source_artifacts_deployment = publish_source_artifacts(
     bsm=bsm,
@@ -42,3 +43,14 @@ source_artifacts_deployment = publish_source_artifacts(
     verbose=verbose,
 )
 print(f"build and upload source artifacts, preview s3: {source_artifacts_deployment.s3path_source_zip.console_url}")
+
+dir_project_root = _dir_here.parent
+dir_python_lib = dir_project_root.joinpath(package_name)
+dir_python_lib_target = dir_build.joinpath(package_name)
+
+build_source_python_lib(
+    dir_python_lib_source=dir_python_lib,
+    dir_python_lib_target=dir_python_lib_target,
+    include=["*.py", "*.txt"],
+    exclude=["vendor/*.py", "*.txt"],
+)

@@ -15,6 +15,15 @@ Backlog (TODO)
 **Miscellaneous**
 
 
+0.3.1 (2023-07-03)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Features and Improvements**
+
+- add the following public api:
+    - ``aws_lambda_layer.api.do_we_include``
+    - ``aws_lambda_layer.api.build_source_python_lib``
+
+
 0.2.4 (2023-05-27)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Minor Improvements**

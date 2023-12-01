@@ -13,6 +13,7 @@ It stores the layer artifacts in an S3 bucket with the following structure::
 """
 
 import typing as T
+import enum
 import glob
 import shutil
 import subprocess
@@ -20,13 +21,20 @@ import dataclasses
 from pathlib import Path
 from urllib.parse import urlencode
 
+import botocore.exceptions
 from s3pathlib import S3Path
-from func_args import NOTHING
+from func_args import NOTHING, resolve_kwargs
 from boto_session_manager import BotoSesManager
 
 from .vendor.better_pathlib import temp_cwd
 from .vendor.hashes import hashes
 from .context import BuildContext
+
+if T.TYPE_CHECKING:
+    from mypy_boto3_lambda.type_defs import (
+        AddLayerVersionPermissionResponseTypeDef,
+        RemoveLayerVersionPermissionResponseTypeDef,
+    )
 
 
 def get_latest_layer_version(
@@ -240,7 +248,7 @@ def publish_layer(
     python_versions: T.List[str],
     dir_build: T.Union[str, Path],
     s3dir_lambda: T.Union[str, S3Path],
-) -> T.Tuple[int, str, S3Path, S3Path,]:
+) -> T.Tuple[int, str, S3Path, S3Path]:
     """
     Publish a new lambda layer version from AWS S3.
 
@@ -302,6 +310,7 @@ class LayerDeployment:
     :param s3path_layer_zip: the S3Path object of the layer.zip file
     :param s3path_layer_requirements_txt: the S3Path object of the requirements.txt file
     """
+
     layer_sha256: str = dataclasses.field()
     layer_version: int = dataclasses.field()
     layer_version_arn: str = dataclasses.field()
@@ -367,10 +376,7 @@ def deploy_layer(
         quiet=quiet,
     )
 
-    (
-        s3path_tmp_layer_zip,
-        s3path_tmp_layer_requirements_txt,
-    ) = upload_layer_artifacts(
+    (s3path_tmp_layer_zip, s3path_tmp_layer_requirements_txt,) = upload_layer_artifacts(
         bsm=bsm,
         path_requirements=path_requirements,
         layer_sha256=layer_sha256,
@@ -400,3 +406,107 @@ def deploy_layer(
         s3path_layer_zip=s3path_layer_zip,
         s3path_layer_requirements_txt=s3path_layer_requirements_txt,
     )
+
+
+class LayerPermissionActionEnum(str, enum.Enum):
+    get_layer_version = "lambda:GetLayerVersion"
+    list_layer_versions = "lambda:ListLayerVersions"
+
+
+action_to_statement_mapper: T.Dict[str, str] = {
+    LayerPermissionActionEnum.get_layer_version: "GetLayerVersion",
+    LayerPermissionActionEnum.list_layer_versions: "ListLayerVersions",
+}
+
+
+def build_statement_id(
+    action: str,
+    principal: str,
+    organization_id: str = NOTHING,
+) -> str:
+    if organization_id is NOTHING:
+        return f"principal-{principal}-action-{action_to_statement_mapper[action]}"
+    else:
+        return f"principal-{principal}-organization-{organization_id}-action-{action_to_statement_mapper[action]}"
+
+
+def grant_layer_permission(
+    bsm: "BotoSesManager",
+    layer_name: str,
+    version_number: int,
+    principal: str,
+    statement_id: T.Optional[str] = None,
+    action: str = LayerPermissionActionEnum.get_layer_version.value,
+    organization_id: str = NOTHING,
+    revision_id: str = NOTHING,
+) -> "AddLayerVersionPermissionResponseTypeDef":
+    if statement_id is None:
+        statement_id = build_statement_id(
+            action=action,
+            principal=principal,
+            organization_id=organization_id,
+        )
+
+    def add_layer_version_permission() -> dict:
+        return bsm.lambda_client.add_layer_version_permission(
+            **resolve_kwargs(
+                LayerName=layer_name,
+                VersionNumber=version_number,
+                StatementId=statement_id,
+                Principal=bsm.aws_account_id,
+                Action=action,
+                OrganizationId=organization_id,
+                RevisionId=revision_id,
+            )
+        )
+
+    try:
+        res = add_layer_version_permission()
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceConflictException":
+            bsm.lambda_client.remove_layer_version_permission(
+                **resolve_kwargs(
+                    LayerName=layer_name,
+                    VersionNumber=version_number,
+                    StatementId=statement_id,
+                    RevisionId=revision_id,
+                )
+            )
+            res = add_layer_version_permission()
+        else:
+            raise e
+    return res
+
+
+def revoke_layer_permission(
+    bsm: "BotoSesManager",
+    layer_name: str,
+    version_number: int,
+    statement_id: T.Optional[str] = None,
+    action: str = LayerPermissionActionEnum.get_layer_version.value,
+    principal: str = NOTHING,
+    organization_id: str = NOTHING,
+    revision_id: str = NOTHING,
+) -> T.Optional["RemoveLayerVersionPermissionResponseTypeDef"]:
+    if statement_id is None:
+        if principal is NOTHING:
+            raise ValueError("principal must be provided if statement_id is None")
+        statement_id = build_statement_id(
+            action=action,
+            principal=principal,
+            organization_id=organization_id,
+        )
+    try:
+        return bsm.lambda_client.remove_layer_version_permission(
+            **resolve_kwargs(
+                LayerName=layer_name,
+                VersionNumber=version_number,
+                StatementId=statement_id,
+                RevisionId=revision_id,
+            )
+        )
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            return None
+        else:
+            raise e

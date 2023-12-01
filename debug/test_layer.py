@@ -2,9 +2,14 @@
 
 import sys
 from pathlib import Path
-from s3pathlib import S3Path
+from s3pathlib import S3Path, context
 from boto_session_manager import BotoSesManager
-from aws_lambda_layer.layer import deploy_layer
+from aws_lambda_layer.layer import (
+    deploy_layer,
+    get_latest_layer_version,
+    grant_layer_permission,
+    revoke_layer_permission,
+)
 
 _dir_here = Path(__file__).absolute().parent
 
@@ -21,6 +26,7 @@ quiet = True
 metadata = {"project": "aws_lambda_layer_test"}
 tags = {"project": "aws_lambda_layer_test"}
 
+context.attach_boto_session(bsm.boto_ses)
 layer_deployment = deploy_layer(
     bsm=bsm,
     layer_name=layer_name,
@@ -50,3 +56,19 @@ else:
     print(
         f"no new layer version published, preview lambda layer: {lambda_layer_console_url}"
     )
+
+version = get_latest_layer_version(bsm, layer_name)
+
+grant_layer_permission(
+    bsm=bsm,
+    layer_name=layer_name,
+    version_number=version,
+    principal=bsm.aws_account_id,
+)
+
+revoke_layer_permission(
+    bsm=bsm,
+    layer_name=layer_name,
+    version_number=version,
+    principal=bsm.aws_account_id,
+)

@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from s3pathlib import S3Path
+from s3pathlib import S3Path, context
 from boto_session_manager import BotoSesManager
 from aws_lambda_layer import api
 
@@ -20,6 +20,7 @@ tags = {"project": "aws_lambda_layer_test"}
 #
 # ------------------------------------------------------------------------------
 
+context.attach_boto_session(bsm.boto_ses)
 _dir_here = Path(__file__).absolute().parent
 dir_build = _dir_here.joinpath("build")
 path_requirements = _dir_here.joinpath("requirements.txt")
@@ -75,3 +76,19 @@ print("publish new layer version ...")
 )
 lambda_layer_console_url = f"https://{bsm.aws_region}.console.aws.amazon.com/lambda/home?region={bsm.aws_region}#/layers/{layer_name}?tab=versions"
 print(f"Done! Published: {layer_version_arn}")
+
+version = api.get_latest_layer_version(bsm, layer_name)
+
+api.grant_layer_permission(
+    bsm=bsm,
+    layer_name=layer_name,
+    version_number=version,
+    principal=bsm.aws_account_id,
+)
+
+api.revoke_layer_permission(
+    bsm=bsm,
+    layer_name=layer_name,
+    version_number=version,
+    principal=bsm.aws_account_id,
+)

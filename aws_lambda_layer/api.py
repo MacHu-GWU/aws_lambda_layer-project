@@ -8,6 +8,8 @@ from .layer import upload_layer_artifacts
 from .layer import publish_layer
 from .layer import deploy_layer
 from .layer import LayerDeployment
+from .layer import grant_layer_permission
+from .layer import revoke_layer_permission
 from .source import do_we_include
 from .source import build_source_python_lib
 from .source import build_source_artifacts

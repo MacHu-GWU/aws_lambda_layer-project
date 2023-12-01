@@ -14,6 +14,8 @@ def test():
     _ = api.publish_layer
     _ = api.deploy_layer
     _ = api.LayerDeployment
+    _ = api.grant_layer_permission
+    _ = api.revoke_layer_permission
     _ = api.do_we_include
     _ = api.build_source_python_lib
     _ = api.build_source_artifacts

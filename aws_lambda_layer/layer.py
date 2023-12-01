@@ -376,7 +376,7 @@ def deploy_layer(
         quiet=quiet,
     )
 
-    (s3path_tmp_layer_zip, s3path_tmp_layer_requirements_txt,) = upload_layer_artifacts(
+    (s3path_tmp_layer_zip, s3path_tmp_layer_requirements_txt) = upload_layer_artifacts(
         bsm=bsm,
         path_requirements=path_requirements,
         layer_sha256=layer_sha256,
@@ -440,6 +440,25 @@ def grant_layer_permission(
     organization_id: str = NOTHING,
     revision_id: str = NOTHING,
 ) -> "AddLayerVersionPermissionResponseTypeDef":
+    """
+    An Idempotent version of the original
+    ``lambda_client.add_layer_version_permission`` API, it also handles
+    the statement id automatically. If the statement already exists, delete it
+    then create a new one.
+
+    :param bsm: boto session manager object
+    :param layer_name: the lambda layer name
+    :param version_number: see official API
+    :param principal: see official doc
+    :param statement_id: if provided, use the provided statement id, otherwise,
+        build one automatically based on combination of action, principal and
+        organization id.
+    :param action: lambda layer action syntax
+    :param organization_id: see official doc
+    :param revision_id: see official doc
+
+    :return: the response of the original API.
+    """
     if statement_id is None:
         statement_id = build_statement_id(
             action=action,
@@ -488,6 +507,25 @@ def revoke_layer_permission(
     organization_id: str = NOTHING,
     revision_id: str = NOTHING,
 ) -> T.Optional["RemoveLayerVersionPermissionResponseTypeDef"]:
+    """
+    An Idempotent version of the original
+    ``lambda_client.remove_layer_version_permission`` API, it also handles
+    the statement id automatically.
+
+    :param bsm: boto session manager object
+    :param layer_name: the lambda layer name
+    :param version_number: see official API
+    :param statement_id: if provided, use the provided statement id, otherwise,
+        build one automatically based on combination of action, principal and
+        organization id.
+    :param action: lambda layer action syntax
+    :param principal: see official doc
+    :param organization_id: see official doc
+    :param revision_id: see official doc
+
+    :return: None if there's no permission to revoke, otherwise, the response
+        of the original API.
+    """
     if statement_id is None:
         if principal is NOTHING:
             raise ValueError("principal must be provided if statement_id is None")

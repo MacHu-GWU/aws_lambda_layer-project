@@ -15,6 +15,14 @@ Backlog (TODO)
 **Miscellaneous**
 
 
+0.4.1 (2023-12-01)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Features and Improvements**
+- add the following public api:
+    - ``aws_lambda_layer.api.grant_layer_permission``
+    - ``aws_lambda_layer.api.revoke_layer_permission``
+
+
 0.3.1 (2023-07-03)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**

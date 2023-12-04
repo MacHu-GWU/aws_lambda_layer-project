@@ -286,10 +286,12 @@ def publish_layer(
     build_context.s3path_tmp_layer_zip.copy_to(
         s3path_layer_zip,
         overwrite=False,
+        bsm=bsm,
     )
     build_context.s3path_tmp_layer_requirements_txt.copy_to(
         s3path_layer_requirements_txt,
         overwrite=False,
+        bsm=bsm,
     )
     return (
         layer_version,

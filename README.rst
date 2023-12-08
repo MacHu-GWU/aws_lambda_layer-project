@@ -55,7 +55,7 @@ Welcome to ``aws_lambda_layer`` Documentation
 ==============================================================================
 A simple tool that automates the process of building and deploying AWS Lambda layers and source artifacts. It utilizes a purposefully designed S3 folder structure to store all historical versions of artifacts.
 
-Examples:
+Usage Examples:
 
 - `build_layer.py <./example/build_layer.py>`_
 - `build_source.py <./example/build_source.py>`_

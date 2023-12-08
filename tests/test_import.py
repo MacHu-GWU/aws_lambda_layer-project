@@ -22,6 +22,7 @@ def test():
     _ = api.upload_source_artifacts
     _ = api.publish_source_artifacts
     _ = api.SourceArtifactsDeployment
+    _ = api.get_latest_source_version
 
 
 if __name__ == "__main__":

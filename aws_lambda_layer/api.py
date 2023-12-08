@@ -16,3 +16,4 @@ from .source import build_source_artifacts
 from .source import upload_source_artifacts
 from .source import publish_source_artifacts
 from .source import SourceArtifactsDeployment
+from .source import get_latest_source_version

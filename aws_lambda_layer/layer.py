@@ -45,6 +45,9 @@ def get_latest_layer_version(
     Call the AWS Lambda Layer API to retrieve the latest deployed layer version.
     If it returns ``None``, it indicates that no layer has been deployed yet.
 
+    Example: if layer has version 1, 2, 3, then this function return 3.
+    if there's no layer version created yet, then this function returns None.
+
     :param bsm: boto session manager object
     :param layer_name: the lambda layer name
 
@@ -69,7 +72,17 @@ def is_current_layer_the_same_as_latest_one(
     """
     Compare the local version of the requirements with the S3 backup of the
     latest layer requirements. If they are the same, we don't need to publish
-    a new layer.
+    a new layer. Note that we assume that the requirements.txt file is
+    deterministic. i.e. it is generated from tools like poetry.
+
+    Not deterministic, you should not do this::
+
+        atomicwrites
+
+    Deterministic::
+
+        atomicwrites==1.4.1 ; python_version >= "3.9.dev0" and python_version < "3.10.dev0" \
+    --hash=sha256:81b2c9071a49367a7f770170e5eec8cb66567cfbbc8c73d20ce5ca4a8d71cf11
 
     :param bsm: boto session manager object
     :param latest_layer_version: the latest layer version, if it is None,
@@ -314,6 +327,7 @@ class LayerDeployment:
     """
 
     layer_sha256: str = dataclasses.field()
+    layer_name: str = dataclasses.field()
     layer_version: int = dataclasses.field()
     layer_version_arn: str = dataclasses.field()
     s3path_layer_zip: S3Path = dataclasses.field()
@@ -403,6 +417,7 @@ def deploy_layer(
 
     return LayerDeployment(
         layer_sha256=layer_sha256,
+        layer_name=layer_name,
         layer_version=layer_version,
         layer_version_arn=layer_version_arn,
         s3path_layer_zip=s3path_layer_zip,
@@ -448,7 +463,8 @@ def grant_layer_permission(
     the statement id automatically. If the statement already exists, delete it
     then create a new one.
 
-    :param bsm: boto session manager object
+    :param bsm: boto session manager object that's on the same account as the
+        lambda layer. It is NOT the grantee's account's boto session manager.
     :param layer_name: the lambda layer name
     :param version_number: see official API
     :param principal: see official doc
@@ -474,7 +490,7 @@ def grant_layer_permission(
                 LayerName=layer_name,
                 VersionNumber=version_number,
                 StatementId=statement_id,
-                Principal=bsm.aws_account_id,
+                Principal=principal,
                 Action=action,
                 OrganizationId=organization_id,
                 RevisionId=revision_id,

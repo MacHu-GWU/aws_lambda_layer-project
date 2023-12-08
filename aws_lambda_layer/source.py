@@ -171,13 +171,14 @@ def build_source_artifacts(
     Given the ``path_setup_py_or_pyproject_toml`` path, this function will
     locate the directory where the ``python -m build``, ``pip install`` or ``poetry build``
     command should run, build the distribution package, and then copy the
-    ``path_lambda_function`` to the deploy folder in the ``dir_build`` directory,
+    ``path_lambda_function`` to the ``deploy`` folder in the ``dir_build`` directory,
     and create the ``source.zip`` file.
 
     :param path_setup_py_or_pyproject_toml: example: ``/path/to/setup.py`` or
         ``/path/to/pyproject.toml``
     :param package_name: example: ``aws_lambda_layer``
-    :param path_lambda_function: example: ``/path/to/lambda_function.py``
+    :param path_lambda_function: the lambda_function.py file serve as the entry point
+        example: ``/path/to/lambda_function.py``
     :param dir_build: example: ``/path/to/build/lambda``
     :param path_bin_python: example ``/path/to/.venv/bin/python``
     :param path_bin_poetry: example ``/path/to/.venv/bin/poetry`` or the global ``poetry``
@@ -349,11 +350,13 @@ class SourceArtifactsDeployment:
     :param source_sha256: code sha256 hash of the source artifacts
     :param path_source_zip: path to the source.zip file on local
     :param s3path_source_zip: S3Path object of the source.zip file
+    :param version: lambda source code version, example: ``"0.1.1"``
     """
 
     source_sha256: str = dataclasses.field()
     path_source_zip: Path = dataclasses.field()
     s3path_source_zip: S3Path = dataclasses.field()
+    version: str = dataclasses.field()
 
 
 def publish_source_artifacts(
@@ -388,7 +391,8 @@ def publish_source_artifacts(
     :param path_setup_py_or_pyproject_toml: example: ``/path/to/setup.py`` or
         ``/path/to/pyproject.toml``
     :param package_name: example: ``aws_lambda_layer``
-    :param path_lambda_function: example: ``/path/to/lambda_function.py``
+    :param path_lambda_function: the lambda_function.py file serve as the entry point
+        example: ``/path/to/lambda_function.py``
     :param version: lambda source code version, example: ``"0.1.1"``
     :param dir_build: example: ``/path/to/build/lambda``
     :param s3dir_lambda: example: ``s3://bucket/path/to/lambda/``
@@ -402,7 +406,7 @@ def publish_source_artifacts(
     :param use_pathlib: do you want to use pathlib to build your source?
     :param verbose: whether you want to suppress the output of cli commands
 
-    :return: :class:`SourceArtifactsDeployment` object.
+    :return: a :class:`SourceArtifactsDeployment` object.
     """
     source_sha256, path_source_zip = build_source_artifacts(
         path_setup_py_or_pyproject_toml=path_setup_py_or_pyproject_toml,
@@ -430,4 +434,58 @@ def publish_source_artifacts(
         source_sha256=source_sha256,
         path_source_zip=path_source_zip,
         s3path_source_zip=s3path_source_zip,
+        version=version,
     )
+
+
+def _tokenize(text: str) -> T.List[int]:
+    """
+    Example::
+
+        >>> _tokenize("0.1.2")
+        [0, 1, 2]
+    """
+    return [int(word) for word in text.split(".")]
+
+
+def extract_sortable_version(text: str) -> T.Optional[str]:
+    """
+    Example::
+
+        >>> extract_sortable_version("0.1.2")
+        "000000000000.000000000001.000000000002"
+    """
+    try:
+        numbers = _tokenize(text)
+        return ".".join([str(number).zfill(12) for number in numbers])
+    except:
+        return None
+
+
+def simplify_sortable_version(text: str) -> str:
+    """
+    Example::
+
+        >>> simplify_sortable_version("000000000000.000000000001.000000000002")
+        "0.1.2"
+    """
+    return ".".join([str(i) for i in _tokenize(text)])
+
+
+def get_latest_source_version(
+    bsm: "BotoSesManager",
+    s3dir_lambda: T.Union[str, S3Path],
+) -> str:
+    """
+    Get the latest version of the lambda source.
+    """
+    s3dir_lambda.joinpath()
+    build_context = BuildContext.new(dir_build=None, s3dir_lambda=s3dir_lambda)
+    versions = list()
+    for s3dir in build_context.s3dir_source.iterdir(bsm=bsm):
+        sortable_version = extract_sortable_version(s3dir.basename)
+        if sortable_version:
+            versions.append(sortable_version)
+    versions.sort(reverse=True)
+    latest_version = simplify_sortable_version(versions[0])
+    return latest_version

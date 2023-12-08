@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from s3pathlib import S3Path
 from boto_session_manager import BotoSesManager
-from aws_lambda_layer.source import build_source_python_lib, publish_source_artifacts
+from aws_lambda_layer.source import build_source_python_lib, publish_source_artifacts, get_latest_source_version
 
 _dir_here = Path(__file__).absolute().parent
 
@@ -54,3 +54,9 @@ build_source_python_lib(
     include=["*.py", "*.txt"],
     exclude=["vendor/*.py", "*.txt"],
 )
+
+latest_version = get_latest_source_version(
+    bsm=bsm,
+    s3dir_lambda=s3dir_lambda,
+)
+print(f"latest_version: {latest_version}")

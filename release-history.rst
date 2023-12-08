@@ -15,6 +15,23 @@ Backlog (TODO)
 **Miscellaneous**
 
 
+0.5.1 (2023-12-08)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Features and Improvements**
+
+- add the following public api:
+    - ``aws_lambda_layer.api.get_latest_source_version``
+
+**Minor Improvements**
+
+- Add ``SourceArtifactsDeployment.version`` attribute.
+- Add ``LayerDeployment.layer_name`` attribute.
+
+**Bugfixes**
+
+- Fix a bug in ``grant_layer_permission`` that the principal is wrong.
+
+
 0.4.2 (2023-12-04)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Bugfixes**
@@ -25,6 +42,7 @@ Backlog (TODO)
 0.4.1 (2023-12-01)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**
+
 - add the following public api:
     - ``aws_lambda_layer.api.grant_layer_permission``
     - ``aws_lambda_layer.api.revoke_layer_permission``

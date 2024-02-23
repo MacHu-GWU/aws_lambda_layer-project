@@ -115,6 +115,7 @@ def build_layer_artifacts(
     path_requirements: T.Union[str, Path],
     dir_build: T.Union[str, Path],
     bin_pip: T.Union[str, Path],
+    ignore_package_list: T.Optional[T.List[str]] = None,
     quiet: bool = False,
 ) -> str:
     """
@@ -128,10 +129,12 @@ def build_layer_artifacts(
     also uses Amazon Linux. Building the layer on Windows or Mac may result in
     compatibility issues with certain C libraries.
 
-    :param path_requirements: example: ``/path/to/requirements.txt``
-    :param dir_build: example: ``/path/to/build/lambda``
-    :param bin_pip: example: ``/path/to/.venv/bin/pip``
-    :param quiet: whether you want to suppress the output of cli commands
+    :param path_requirements: example: ``/path/to/requirements.txt``.
+    :param dir_build: example: ``/path/to/build/lambda``.
+    :param bin_pip: example: ``/path/to/.venv/bin/pip``.
+    :param ignore_package_list: a list of package names that you want to ignore
+        when building the layer.
+    :param quiet: whether you want to suppress the output of cli commands.
 
     :return: the layer content sha256, it is sha256 of the requirements.txt file
     """
@@ -163,17 +166,19 @@ def build_layer_artifacts(
     # zip the layer file
     # some packages are pre-installed in AWS Lambda runtime, so we don't need to
     # add them to the layer
-    ignore_package_list = [
-        "boto3",
-        "botocore",
-        "s3transfer",
-        "setuptools",
-        "pip",
-        "wheel",
-        "twine",
-        "_pytest",
-        "pytest",
-    ]
+    if ignore_package_list is None:
+        ignore_package_list = [
+            "boto3",
+            "botocore",
+            "s3transfer",
+            "urllib3",
+            "setuptools",
+            "pip",
+            "wheel",
+            "twine",
+            "_pytest",
+            "pytest",
+        ]
     args = [
         "zip",
         f"{build_context.path_layer_zip}",
@@ -185,9 +190,10 @@ def build_layer_artifacts(
     # the glob command and zip command depends on the current working directory
     with temp_cwd(build_context.dir_build):
         args.extend(glob.glob("*"))
-        args.append("-x")
-        for package in ignore_package_list:
-            args.append(f"python/{package}*")
+        if ignore_package_list:
+            args.append("-x")
+            for package in ignore_package_list:
+                args.append(f"python/{package}*")
         subprocess.run(args, check=True)
     layer_sha256 = hashes.of_bytes(path_requirements.read_bytes())
     return layer_sha256

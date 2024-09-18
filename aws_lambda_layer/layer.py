@@ -117,6 +117,7 @@ def build_layer_artifacts(
     bin_pip: T.Union[str, Path],
     ignore_package_list: T.Optional[T.List[str]] = None,
     quiet: bool = False,
+    extra_args: T.Optional[T.List[str]] = None,
 ) -> str:
     """
     This function builds the AWS Lambda layer artifacts based on the dependencies
@@ -135,6 +136,7 @@ def build_layer_artifacts(
     :param ignore_package_list: a list of package names that you want to ignore
         when building the layer.
     :param quiet: whether you want to suppress the output of cli commands.
+    :param extra_args: additional command line arguments for ``pip install ...``.
 
     :return: the layer content sha256, it is sha256 of the requirements.txt file
     """
@@ -161,6 +163,8 @@ def build_layer_artifacts(
     if quiet:
         args.append("--disable-pip-version-check")
         args.append("--quiet")
+    if extra_args is not None:
+        args.extend(extra_args)
     subprocess.run(args, check=True)
 
     # zip the layer file

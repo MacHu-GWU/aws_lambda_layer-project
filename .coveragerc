@@ -4,7 +4,7 @@
 omit =
     aws_lambda_layer/docs/*
     aws_lambda_layer/tests/*
-    aws_lambda_layer/vendor/*
+    aws_lambda_layer/vendorm/*
     aws_lambda_layer/_version.py
     aws_lambda_layer/cli.py
 
